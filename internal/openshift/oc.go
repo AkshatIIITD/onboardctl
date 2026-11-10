@@ -75,7 +75,12 @@ func (o *OC) EnsureNamespace(ctx context.Context, name string, mode CreateMode) 
 	if err == nil {
 		return false, nil
 	}
-	if !containsFold(out, "notfound", "not found") {
+	// "Forbidden" on `get project` is expected for users who may create projects
+	// but not list or read them: OpenShift answers Forbidden for any project you
+	// have no access to, whether or not it exists. So in project mode we try to
+	// create it and let "AlreadyExists" tell us about a name collision.
+	cannotRead := mode == ModeProject && containsFold(out, "forbidden")
+	if !cannotRead && !containsFold(out, "notfound", "not found") {
 		// Login expired, no access to the cluster, oc missing, etc. Do not
 		// try to create anything; show what oc said.
 		return false, fmt.Errorf("checking %s %q: %w\n%s", kind, name, err, out)

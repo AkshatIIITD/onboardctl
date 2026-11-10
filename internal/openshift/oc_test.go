@@ -31,9 +31,9 @@ func fakeRun(replies ...reply) (RunFunc, *[][]string) {
 var errExit = errors.New("exit status 1")
 
 func TestEnsureNamespace_AlreadyExists(t *testing.T) {
-	run, calls := fakeRun(reply{out: "project.project.openshift.io/new-project"})
+	run, calls := fakeRun(reply{out: "project.project.openshift.io/cpv"})
 	oc := &OC{Run: run}
-	created, err := oc.EnsureNamespace(context.Background(), "new-project", ModeProject)
+	created, err := oc.EnsureNamespace(context.Background(), "cpv", ModeProject)
 	if err != nil || created {
 		t.Fatalf("created=%v err=%v, want false,nil", created, err)
 	}
@@ -44,17 +44,17 @@ func TestEnsureNamespace_AlreadyExists(t *testing.T) {
 
 func TestEnsureNamespace_CreatesProject(t *testing.T) {
 	run, calls := fakeRun(
-		reply{out: `Error from server (NotFound): projects "new-project" not found`, err: errExit},
+		reply{out: `Error from server (NotFound): projects "cpv" not found`, err: errExit},
 		reply{out: "Now using project", err: nil},
 	)
 	oc := &OC{Run: run}
-	created, err := oc.EnsureNamespace(context.Background(), "new-project", ModeProject)
+	created, err := oc.EnsureNamespace(context.Background(), "cpv", ModeProject)
 	if err != nil || !created {
 		t.Fatalf("created=%v err=%v, want true,nil", created, err)
 	}
 	want := [][]string{
-		{"oc", "get", "project", "new-project", "-o", "name"},
-		{"oc", "new-project", "new-project", "--skip-config-write"},
+		{"oc", "get", "project", "cpv", "-o", "name"},
+		{"oc", "new-project", "cpv", "--skip-config-write"},
 	}
 	if !reflect.DeepEqual(*calls, want) {
 		t.Errorf("calls = %v, want %v", *calls, want)
@@ -63,16 +63,16 @@ func TestEnsureNamespace_CreatesProject(t *testing.T) {
 
 func TestEnsureNamespace_NamespaceMode(t *testing.T) {
 	run, calls := fakeRun(
-		reply{out: `Error from server (NotFound): namespaces "new-project" not found`, err: errExit},
-		reply{out: "namespace/new-project created"},
+		reply{out: `Error from server (NotFound): namespaces "cpv" not found`, err: errExit},
+		reply{out: "namespace/cpv created"},
 	)
 	oc := &OC{Run: run}
-	if _, err := oc.EnsureNamespace(context.Background(), "new-project", ModeNamespace); err != nil {
+	if _, err := oc.EnsureNamespace(context.Background(), "cpv", ModeNamespace); err != nil {
 		t.Fatal(err)
 	}
 	want := [][]string{
-		{"oc", "get", "namespace", "new-project", "-o", "name"},
-		{"oc", "create", "namespace", "new-project"},
+		{"oc", "get", "namespace", "cpv", "-o", "name"},
+		{"oc", "create", "namespace", "cpv"},
 	}
 	if !reflect.DeepEqual(*calls, want) {
 		t.Errorf("calls = %v, want %v", *calls, want)
@@ -81,11 +81,11 @@ func TestEnsureNamespace_NamespaceMode(t *testing.T) {
 
 func TestEnsureNamespace_HiddenCollision(t *testing.T) {
 	run, _ := fakeRun(
-		reply{out: `Error from server (NotFound): projects "new-project" not found`, err: errExit},
-		reply{out: `Error from server (AlreadyExists): project.project.openshift.io "new-project" already exists`, err: errExit},
+		reply{out: `Error from server (NotFound): projects "cpv" not found`, err: errExit},
+		reply{out: `Error from server (AlreadyExists): project.project.openshift.io "cpv" already exists`, err: errExit},
 	)
 	oc := &OC{Run: run}
-	_, err := oc.EnsureNamespace(context.Background(), "new-project", ModeProject)
+	_, err := oc.EnsureNamespace(context.Background(), "cpv", ModeProject)
 	if !errors.Is(err, ErrNameCollision) {
 		t.Fatalf("err = %v, want ErrNameCollision", err)
 	}
@@ -94,7 +94,7 @@ func TestEnsureNamespace_HiddenCollision(t *testing.T) {
 func TestEnsureNamespace_UnauthorizedDoesNotCreate(t *testing.T) {
 	run, calls := fakeRun(reply{out: "error: You must be logged in to the server (Unauthorized)", err: errExit})
 	oc := &OC{Run: run}
-	_, err := oc.EnsureNamespace(context.Background(), "new-project", ModeProject)
+	_, err := oc.EnsureNamespace(context.Background(), "cpv", ModeProject)
 	if err == nil || !strings.Contains(err.Error(), "Unauthorized") {
 		t.Fatalf("err = %v, want it to mention Unauthorized", err)
 	}
@@ -109,7 +109,7 @@ func TestEnsureNamespace_CreateFailureShowsOutput(t *testing.T) {
 		reply{out: "Error from server (Forbidden): cannot create projectrequests", err: errExit},
 	)
 	oc := &OC{Run: run}
-	_, err := oc.EnsureNamespace(context.Background(), "new-project", ModeProject)
+	_, err := oc.EnsureNamespace(context.Background(), "cpv", ModeProject)
 	if err == nil || !strings.Contains(err.Error(), "Forbidden") {
 		t.Fatalf("err = %v, want it to include oc's output", err)
 	}
@@ -118,10 +118,10 @@ func TestEnsureNamespace_CreateFailureShowsOutput(t *testing.T) {
 func TestEnsureNamespace_ContextFlag(t *testing.T) {
 	run, calls := fakeRun(reply{out: "ok"})
 	oc := &OC{Binary: "/usr/bin/oc", Context: "prod", Run: run}
-	if _, err := oc.EnsureNamespace(context.Background(), "new-project", ModeProject); err != nil {
+	if _, err := oc.EnsureNamespace(context.Background(), "cpv", ModeProject); err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"/usr/bin/oc", "get", "project", "new-project", "-o", "name", "--context", "prod"}
+	want := []string{"/usr/bin/oc", "get", "project", "cpv", "-o", "name", "--context", "prod"}
 	if !reflect.DeepEqual((*calls)[0], want) {
 		t.Errorf("call = %v, want %v", (*calls)[0], want)
 	}
@@ -136,5 +136,46 @@ func TestParseCreateMode(t *testing.T) {
 	}
 	if _, err := ParseCreateMode("quota"); err == nil {
 		t.Error("expected error for invalid mode")
+	}
+}
+
+const forbiddenGet = `Error from server (Forbidden): projects.project.openshift.io "cpv" is forbidden: User "akshat.singh" cannot get resource "projects" in API group "project.openshift.io" in the namespace "cpv"`
+
+// Users with only self-provisioner can create projects but not read them.
+func TestEnsureNamespace_ForbiddenGetStillCreatesInProjectMode(t *testing.T) {
+	run, calls := fakeRun(
+		reply{out: forbiddenGet, err: errExit},
+		reply{out: "Created project cpv"},
+	)
+	oc := &OC{Run: run}
+	created, err := oc.EnsureNamespace(context.Background(), "cpv", ModeProject)
+	if err != nil || !created {
+		t.Fatalf("created=%v err=%v, want true,nil", created, err)
+	}
+	if got := (*calls)[1]; !reflect.DeepEqual(got, []string{"oc", "new-project", "cpv", "--skip-config-write"}) {
+		t.Errorf("second call = %v", got)
+	}
+}
+
+func TestEnsureNamespace_ForbiddenGetThenAlreadyExistsIsACollision(t *testing.T) {
+	run, _ := fakeRun(
+		reply{out: forbiddenGet, err: errExit},
+		reply{out: `Error from server (AlreadyExists): project.project.openshift.io "cpv" already exists`, err: errExit},
+	)
+	oc := &OC{Run: run}
+	_, err := oc.EnsureNamespace(context.Background(), "cpv", ModeProject)
+	if !errors.Is(err, ErrNameCollision) {
+		t.Fatalf("err = %v, want ErrNameCollision", err)
+	}
+}
+
+func TestEnsureNamespace_ForbiddenGetInNamespaceModeIsAnError(t *testing.T) {
+	run, calls := fakeRun(reply{out: `Error from server (Forbidden): namespaces "cpv" is forbidden`, err: errExit})
+	oc := &OC{Run: run}
+	if _, err := oc.EnsureNamespace(context.Background(), "cpv", ModeNamespace); err == nil {
+		t.Fatal("expected an error")
+	}
+	if len(*calls) != 1 {
+		t.Errorf("must not create after a forbidden get in namespace mode; calls = %v", *calls)
 	}
 }
