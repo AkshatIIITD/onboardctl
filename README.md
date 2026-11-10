@@ -41,10 +41,22 @@ For the pipeline you also need the API server URL (`oc whoami --show-server`). T
 
 ## Prerequisites
 
-1. **OpenShift:** `oc login` already done. Default mode `project` uses `oc new-project`, which works with the `self-provisioner` role. Use `-openshift-mode namespace` only if you may create Namespace objects directly.
-2. **Harbor:** auth mode must be **OIDC** (Keycloak), with the *Group Claim Name* set (e.g. `groups`). The credentials need permission to create projects and manage their members.
-3. **Keycloak:** a confidential client (the tool fetches and refreshes short-lived tokens itself from the client ID and secret; do not paste a token) with *Service accounts enabled* whose service account has the realm-management role `manage-users` in the target realm. The Keycloak client needs a *Group Membership* mapper with **Full group path = ON**, added to the Harbor client, so tokens carry `/harbor/project/new-project/admin` exactly as Harbor stores it.
-4. `-keycloak-realm` is the realm **name** (as in the URL), not its display name. Older Keycloak needs `/auth` on the URL.
+1. **OpenShift:** `oc login` already done. Default mode `project` uses `oc new-project`, which works with the `self-provisioner` role even if you may not read projects: a "Forbidden" on the existence check is treated as "cannot see it" and onboardctl tries to create it. Use `-openshift-mode namespace` only if you may create Namespace objects directly.
+2. **Harbor:** auth mode must be **OIDC** (Keycloak), with the *Group Claim Name* set (e.g. `groups`). Use credentials that do **not** depend on a personal LDAP password: either the local `admin` account, or a **system-level robot account** (robots cannot log in to the UI, which is fine because onboardctl only uses the API). Put the robot's full name (for example `robot$onboardctl`) in `HARBOR_USERNAME`, single-quoted because of the `$`, and its secret in `HARBOR_PASSWORD`. Give it a long or unlimited lifetime. A robot needs:
+
+   | Level | Resource | Actions |
+   |---|---|---|
+   | System | project | create, list |
+   | System | robot account | create, list, read |
+   | System | user group | create, list, read |
+   | All projects | project member | create, list, read |
+   | All projects | robot account | create, list, read |
+   | All projects | project | read |
+   | All projects | repository | **pull, push** |
+
+   The last row is required, not optional: Harbor refuses to create a robot whose permissions exceed the creator's (`403 ... must be equal to or more restrictive than the creator robot's permissions`), and `pull-push` gets repository pull and push. Avoid granting `project: delete` or any `user` permission; onboardctl does not use them.
+3. **Keycloak:** a confidential client with *Service accounts enabled*. The tool fetches and refreshes short-lived tokens itself from the client ID and secret, so do not paste a token. The service account needs the realm-management role `manage-users` in the target realm (`realm-admin` also works but is far broader than needed). The Harbor client needs a *Group Membership* mapper with **Full group path = ON**, so tokens carry `/harbor/project/new-project/admin` exactly as Harbor stores it.
+4. `-keycloak-realm` is the realm **name** exactly as it appears in the URL (case-sensitive), not its display name. Older Keycloak needs `/auth` on the URL.
 
 ## Settings
 
@@ -92,3 +104,7 @@ Layout: `cmd/onboardctl` (flags), `internal/onboard` (plan and execute), `intern
 1. Add a `-delete` mode that removes a project (think about what must be empty first).
 2. Add a `-members-file` flag that reads usernames and adds them to Keycloak groups.
 3. Print a JSON summary with `-o json` for use in CI.
+
+## License
+
+Released under the [MIT License](LICENSE).
